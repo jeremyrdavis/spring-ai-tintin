@@ -132,6 +132,9 @@
                     <option value="/api/tintin/cover/describe" data-field="url">Cover Analyzer (Describe)</option>
                     <option value="/api/tintin/cover/analyze" data-field="url">Cover Analyzer (Art Style)</option>
                     <option value="/api/tintin/trivia" data-field="question">Tintin Trivia (Tools)</option>
+                    <option value="/api/tintin/chat/stream" data-field="message">Streaming Chat (SSE)</option>
+                    <option value="/api/tintin/guarded" data-field="question">Guarded Service (Guardrails)</option>
+                    <option value="/api/tintin/moderated" data-field="question">Kids-Friendly Expert (Moderation)</option>
                 </select>
                 <button id="sendBtn" onclick="sendRequest()">Send</button>
                 <span id="spinner" class="spinner">&#9881;</span>
@@ -180,6 +183,46 @@
                 <span class="method method-post">POST</span>
                 <span class="endpoint">/api/tintin/trivia</span>
             </div>
+
+            <div class="feature-card">
+                <span class="tag">WebSocket + ChatMemory</span>
+                <h3>Adventure Chat</h3>
+                <p>Real-time chat with Tintin via WebSocket. Uses MessageChatMemoryAdvisor for conversation history.</p>
+                <a href="/chat.html" style="display:inline-block;background:#2b6cb0;color:white;padding:4px 12px;border-radius:6px;font-size:0.85rem;text-decoration:none;font-weight:600;">Open Chat</a>
+                <span class="endpoint" style="margin-left:8px">/adventure-chat</span>
+            </div>
+
+            <div class="feature-card">
+                <span class="tag">SSE Streaming</span>
+                <h3>Streaming Chat</h3>
+                <p>Token-by-token streaming via Server-Sent Events using ChatClient's Flux-based stream() API.</p>
+                <span class="method" style="background:#e9d8fd;color:#553c9a;">GET</span>
+                <span class="endpoint">/api/tintin/chat/stream</span>
+            </div>
+
+            <div class="feature-card">
+                <span class="tag">Guardrails</span>
+                <h3>Guarded Service</h3>
+                <p>Input guardrails reject off-topic queries via SafeGuardAdvisor. Output guardrails validate response length. Try asking about stock prices!</p>
+                <span class="method method-post">POST</span>
+                <span class="endpoint">/api/tintin/guarded</span>
+            </div>
+
+            <div class="feature-card">
+                <span class="tag">Moderation</span>
+                <h3>Kids-Friendly Expert</h3>
+                <p>Family-friendly Tintin expert with OpenAI content moderation via ModerationModel API.</p>
+                <span class="method method-post">POST</span>
+                <span class="endpoint">/api/tintin/moderated</span>
+            </div>
+
+            <div class="feature-card">
+                <span class="tag">Observability</span>
+                <h3>Metrics & Health</h3>
+                <p>Spring Boot Actuator with Prometheus metrics. Spring AI auto-instruments chat, embedding, and tool operations.</p>
+                <a href="/actuator/health" style="display:inline-block;background:#38a169;color:white;padding:4px 12px;border-radius:6px;font-size:0.85rem;text-decoration:none;font-weight:600;">Health</a>
+                <a href="/actuator/prometheus" style="display:inline-block;background:#38a169;color:white;padding:4px 12px;border-radius:6px;font-size:0.85rem;text-decoration:none;font-weight:600;margin-left:4px;">Metrics</a>
+            </div>
         </div>
     </div>
 
@@ -201,6 +244,9 @@
             } else if (field === 'url') {
                 inputArea.placeholder = 'Enter an image URL, or leave blank to use the bundled Tintin cover';
                 inputArea.value = '';
+            } else if (field === 'message') {
+                inputArea.placeholder = 'Enter a message for Tintin (streamed response)...';
+                inputArea.value = 'Tell me about your adventure in Tibet!';
             } else {
                 inputArea.placeholder = 'Enter your question...';
                 inputArea.value = 'Who is Captain Haddock?';
@@ -218,6 +264,21 @@
             responseDiv.textContent = 'Thinking...';
 
             try {
+                if (field === 'message') {
+                    const url = `${endpoint}?message=${encodeURIComponent(input)}`;
+                    const eventSource = new EventSource(url);
+                    responseDiv.textContent = '';
+                    eventSource.onmessage = (event) => {
+                        responseDiv.textContent += event.data;
+                    };
+                    eventSource.onerror = () => {
+                        eventSource.close();
+                        sendBtn.disabled = false;
+                        spinner.classList.remove('active');
+                    };
+                    return;
+                }
+
                 let body = {};
                 if (field === 'question') body = { question: input };
                 else if (field === 'name') body = { name: input };
